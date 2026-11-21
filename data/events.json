@@ -1,0 +1,17 @@
+[
+  {"date": "2019-08-01", "type": "exchange", "tone": "tighten", "title": "陸方暫停陸客赴台自由行", "precision": "day", "verified": true},
+  {"date": "2020-04-01", "type": "exchange", "tone": "tighten", "title": "陸方停止陸生新生來台就讀學位（約 2020 年 4 月起）", "precision": "month", "verified": true},
+  {"date": "2023-03-25", "type": "exchange", "tone": "ease", "title": "台灣開放小三通客運中轉", "precision": "day", "verified": true},
+  {"date": "2023-04-08", "type": "military", "title": "聯合利劍軍演（約 4/8–10）", "precision": "day", "verified": false},
+  {"date": "2023-05-01", "type": "exchange", "tone": "ease", "title": "陸方恢復旅行社經營台灣人赴陸團體旅遊（約 2023 年 5 月）", "precision": "month", "verified": true},
+  {"date": "2023-08-19", "type": "military", "title": "賴清德過境美國期間，共軍演習", "precision": "day", "verified": false},
+  {"date": "2023-08-24", "type": "exchange", "tone": "ease", "title": "陸委會宣布恢復金馬澎與大陸團體旅遊（每日限額）", "precision": "day", "verified": true, "source": "https://newtalk.tw/news/view/2023-08-24/885540"},
+  {"date": "2023-08-28", "type": "exchange", "tone": "ease", "title": "台灣恢復陸籍人士來台短期商務交流", "precision": "day", "verified": true},
+  {"date": "2024-05-23", "type": "military", "title": "聯合利劍-2024A", "precision": "day", "verified": true},
+  {"date": "2024-08-01", "type": "exchange", "tone": "ease", "title": "陸方恢復福建居民赴馬祖旅遊簽證申請（約 2024 年 8 月起）", "precision": "month", "verified": true},
+  {"date": "2024-09-01", "type": "exchange", "tone": "ease", "title": "陸方恢復福建居民赴金門旅遊簽證申請（約 2024 年 9 月起）", "precision": "month", "verified": true},
+  {"date": "2024-10-14", "type": "military", "title": "聯合利劍-2024B", "precision": "day", "verified": true},
+  {"date": "2025-02-01", "type": "exchange", "tone": "ease", "title": "陸方宣布將恢復福建、上海居民赴台團體旅遊，但最終未成行（約 2025 年 2 月）", "precision": "month", "verified": true},
+  {"date": "2025-04-01", "type": "military", "title": "海峽雷霆-2025A（4/1–2）", "precision": "day", "verified": true},
+  {"date": "2025-12-29", "type": "military", "title": "正義使命-2025", "precision": "day", "verified": true}
+]

@@ -42,6 +42,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
@@ -85,6 +86,32 @@ header.top { display: flex; flex-wrap: wrap; justify-content: space-between; ali
 .method ol, .method ul { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; font-size: .88rem; color: var(--ink-2); line-height: 1.6; }
 .method p { margin: 0; font-size: .88rem; color: var(--ink-2); line-height: 1.6; }
 #spikes-panel { margin-bottom: 16px; }
+.tabs { display: flex; }
+.today-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 10px 0; }
+.tile { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 2px; }
+.tile .v { font-family: var(--font-num); font-size: 1.6rem; font-weight: 600; line-height: 1.2; }
+.tile .s { font-size: .8rem; color: var(--ink-3); }
+.today-summary { margin: 0; font-size: .95rem; color: var(--ink); }
+.fresh { font-size: .8rem; color: var(--ink-3); margin-top: 8px; }
+.hist-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.hist-bar input[type=date] { font: inherit; font-size: .9rem; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; }
+.btn { font: inherit; font-size: .88rem; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+.btn:hover { border-color: var(--accent); color: var(--ink); }
+.legend-ev { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: .8rem; color: var(--ink-2); }
+.legend-ev i { display: inline-block; width: 14px; height: 0; border-top: 2px dashed; vertical-align: middle; margin-right: 5px; }
+.hist-detail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.tag { font-size: .72rem; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-right: 6px; white-space: nowrap; }
+.tag.military { color: var(--critical); border-color: var(--critical); }
+.tag.ease { color: var(--good); border-color: var(--good); }
+.tag.tighten { color: var(--serious); border-color: var(--serious); }
+.ev-list { list-style: none; margin: 0; padding: 0; display: grid; font-size: .88rem; }
+.ev-list li { padding: 7px 0; border-top: 1px solid var(--line); display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: 10px; cursor: pointer; }
+.ev-list li:first-child { border-top: 0; }
+.ev-list time { font-family: var(--font-num); font-size: .8rem; color: var(--ink-3); }
+.kv { display: grid; gap: 4px; font-size: .88rem; margin: 0; padding: 0; list-style: none; }
+.kv li { display: flex; justify-content: space-between; gap: 10px; }
+.kv b { font-family: var(--font-num); font-weight: 400; }
+
 .parts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .82rem; color: var(--ink-2); }
 .parts li { display: flex; justify-content: space-between; gap: 8px; }
 .parts li b { font-weight: 400; font-family: var(--font-num); color: var(--ink); white-space: nowrap; }
@@ -125,9 +152,11 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
 @media (max-width: 860px) {
   .summary { grid-template-columns: minmax(0, 1fr); }
   .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .hist-detail { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 560px) {
   .dims { grid-template-columns: minmax(0, 1fr); }
+  .today-grid { grid-template-columns: minmax(0, 1fr); }
   .score-big { font-size: 2.8rem; }
   .news li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
 }
@@ -140,6 +169,21 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     <h1>台海情勢觀測</h1>
     <div class="meta" id="meta">載入資料中…</div>
   </header>
+
+  <div class="tabs"><div class="seg" role="group" aria-label="檢視">
+    <button type="button" id="tab-today" aria-pressed="true">今日總覽</button>
+    <button type="button" id="tab-hist" aria-pressed="false">歷史查閱</button>
+  </div></div>
+
+  <div id="view-today" class="wrap" style="max-width:none">
+  <div class="panel" id="today-panel" hidden>
+    <h3>今日最新資訊</h3>
+    <p class="today-summary" id="today-summary"></p>
+    <div class="today-grid" id="today-tiles"></div>
+    <h3>最新新聞</h3>
+    <ul class="news" id="today-news"></ul>
+    <div class="fresh" id="fresh"></div>
+  </div>
 
   <div class="summary">
     <div class="panel score-main">
@@ -243,6 +287,35 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     </div>
     <p class="note">本頁為個人觀察用的綜合指標，資料全部來自公開來源並自動更新。國防部數據自 2022 年 8 月起採用一致格式，較早的公告不納入圖表與評分。2024 年 1 月至 2025 年 2 月的公告在國防部網站上沒有可讀取的內文（正文為空，也找不到圖片），無法自動取得，圖表與指數在這段期間為空白。</p>
   </section>
+  </div>
+
+  <div id="view-history" class="wrap" style="max-width:none" hidden>
+    <section>
+      <h2>歷史記錄查閱</h2>
+      <div class="hist-bar">
+        <button type="button" class="btn" id="h-prev" aria-label="前一天">‹ 前一天</button>
+        <input type="date" id="h-date" aria-label="選擇日期">
+        <button type="button" class="btn" id="h-next" aria-label="後一天">後一天 ›</button>
+        <button type="button" class="btn" id="h-today">回到今天</button>
+        <span class="muted">也可以直接點下方走勢圖任一天</span>
+      </div>
+      <div class="panel">
+        <div class="head" style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px"><h3>綜合緊張指數（全部歷史）與事件標記</h3></div>
+        <div class="legend-ev"><span><i style="color:var(--critical)"></i>軍演</span><span><i style="color:var(--good)"></i>兩岸交流趨緩</span><span><i style="color:var(--serious)"></i>兩岸交流收緊</span><span><i style="color:var(--ink);border-top-style:solid"></i>選取日期</span></div>
+        <div class="chart-box tall"><canvas id="c-hist" aria-label="綜合指數歷史走勢與事件標記"></canvas></div>
+        <p class="muted" id="h-gap" style="margin:6px 0 0"></p>
+      </div>
+      <div class="hist-detail">
+        <div class="panel"><h3 id="h-title">選取日期</h3><div id="h-body"></div></div>
+        <div class="panel"><h3>當日新聞標題</h3><ul class="news" id="h-news"></ul><p class="muted" id="h-news-note"></p></div>
+      </div>
+      <div class="panel">
+        <h3>事件時間軸（軍演、兩岸交流政策轉折）</h3>
+        <ul class="ev-list" id="ev-list"></ul>
+        <p class="muted">事件由人工整理，標示「待確認」者表示日期或內容尚未逐一查證；點選事件可跳到該日。交流事件僅收錄公開報導中的重大政策轉折，不代表完整清單。</p>
+      </div>
+    </section>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -404,14 +477,151 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
       <td>${v.message}</td><td class="num muted">${(v.checked_at || "").slice(0, 16).replace("T", " ")}</td></tr>`).join("");
   }
 
-  function renderAll() { renderSummary(); if (typeof Chart !== "undefined") renderCharts(); }
 
-  document.querySelectorAll(".seg button").forEach(b => {
+  // ===== 今日最新資訊 =====
+  function renderToday() {
+    const t = DATA.today, panel = document.getElementById("today-panel");
+    if (!t) { panel.hidden = true; return; }
+    panel.hidden = false;
+    document.getElementById("today-summary").textContent = t.summary;
+    const diff = (a, b) => b == null ? "" : (a - b > 0 ? `較前日 +${a - b}` : a - b < 0 ? `較前日 ${a - b}` : "與前日持平");
+    const tile = (name, v, sub, pct) => `<div class="tile"><span class="muted">${name}</span><span class="v">${v}</span><span class="s">${sub}${pct == null ? "" : `・歷史第 ${fmt(pct, 0)} 百分位`}</span></div>`;
+    document.getElementById("today-tiles").innerHTML =
+      tile("共機架次", t.aircraft, diff(t.aircraft, t.aircraft_prev) || `近 7 日平均 ${t.aircraft_avg7}`, t.aircraft_pct) +
+      tile("逾越中線／進入空域", t.crossing, "單日", t.crossing_pct) +
+      tile("共艦艘數", t.ships, "單日", t.ships_pct);
+    const esc = (x) => x.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+    document.getElementById("today-news").innerHTML = (t.headlines || []).map(h =>
+      `<li><time>${h.time.slice(5, 16).replace("T", " ")}</time><span><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(h.title.replace(/ - [^-]+$/, ""))}</a><span class="src-name">${esc(h.source || "")}</span></span></li>`).join("") || `<li class="empty">目前沒有新聞資料。</li>`;
+    const f = DATA.freshness || {};
+    document.getElementById("fresh").textContent = `各來源最新資料日期：國防部 ${f.mnd || "–"}・加權指數 ${f.taiex || "–"}（前一交易日收盤）・新台幣匯率 ${f.twd || "–"}（來源更新較慢）・新聞 ${f.news || "–"}`;
+  }
+
+  // ===== 歷史查閱 =====
+  let HIST = null, histDay = null;
+  const EV_COLOR = (e) => e.type === "military" ? "--critical" : e.tone === "ease" ? "--good" : "--serious";
+  const EV_TAG = (e) => e.type === "military" ? ["military", "軍演"] : e.tone === "ease" ? ["ease", "交流趨緩"] : ["tighten", "交流收緊"];
+  const escH = (x) => String(x).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+
+  const eventPlugin = {
+    id: "eventLines",
+    afterDatasetsDraw(chart) {
+      if (!HIST) return;
+      const { ctx, chartArea: a, scales: { x } } = chart, labels = chart.data.labels;
+      ctx.save();
+      for (const e of HIST.events) {
+        const i = labels.indexOf(e.date); if (i < 0) continue;
+        const px = x.getPixelForValue(i);
+        ctx.strokeStyle = css(EV_COLOR(e)); ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke();
+      }
+      const si = labels.indexOf(histDay);
+      if (si >= 0) {
+        const px = x.getPixelForValue(si);
+        ctx.setLineDash([]); ctx.strokeStyle = css("--ink"); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(px, a.top); ctx.lineTo(px, a.bottom); ctx.stroke();
+      }
+      ctx.restore();
+    },
+  };
+
+  function drawHist() {
+    const days = HIST.days;
+    draw("c-hist", {
+      type: "line",
+      data: { labels: days.map(r => r[0]), datasets: [{ data: days.map(r => r[1]), borderColor: css("--accent"), backgroundColor: css("--accent") + "1a", fill: true, borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 3, tension: .2, spanGaps: false }] },
+      options: (() => {
+        const o = baseOptions(); o.scales.y.min = 0; o.scales.y.max = 100; o.scales.x.ticks.maxTicksLimit = 8;
+        o.interaction = { mode: "nearest", axis: "x", intersect: false };
+        o.plugins.tooltip.callbacks = { label: (c) => c.parsed.y == null ? "資料不足" : `綜合指數：${fmt(c.parsed.y, 1)}` };
+        o.onClick = (ev, _el, chart) => {
+          const pts = chart.getElementsAtEventForMode(ev, "nearest", { axis: "x", intersect: false }, false);
+          if (pts.length) selectDay(chart.data.labels[pts[0].index]);
+        };
+        return o;
+      })(),
+      plugins: [eventPlugin],
+    });
+  }
+
+  function selectDay(day) {
+    if (!HIST) return;
+    const first = HIST.days[0][0], last = HIST.days[HIST.days.length - 1][0];
+    if (day < first) day = first; if (day > last) day = last;
+    histDay = day;
+    document.getElementById("h-date").value = day;
+    const row = HIST.days.find(r => r[0] === day), th = HIST.thresholds;
+    const m = DATA.series.mnd.find(r => r.date === day);
+    const tx = DATA.series.taiex.find(p => p[0] === day), tw = DATA.series.twd.find(p => p[0] === day);
+    const todayRow = HIST.days[HIST.days.length - 1];
+    document.getElementById("h-title").textContent = `${day} 的狀況`;
+    const nearby = HIST.events.filter(e => { const d = (new Date(day) - new Date(e.date)) / 864e5; return d >= -3 && d <= 14; });
+    document.getElementById("h-body").innerHTML = `
+      <ul class="kv">
+        <li><span>綜合指數</span><b>${row && row[1] != null ? `${fmt(row[1], 1)}（${levelName(row[1], th)}）` : "資料不足（國防部資料空白期）"}</b></li>
+        <li><span>軍事／市場／新聞面向</span><b>${row ? [row[2], row[3], row[4]].map(v => fmt(v, 0)).join("／") : "–"}</b></li>
+        <li><span>共機架次／逾越中線／共艦</span><b>${m ? `${m.aircraft}／${m.crossing}／${m.ships}` : "–"}</b></li>
+        <li><span>加權指數收盤</span><b>${tx ? fmt(tx[1], 2) : "–（非交易日）"}</b></li>
+        <li><span>新台幣（1 美元兌）</span><b>${tw ? fmt(tw[1], 3) : "–"}</b></li>
+        <li><span>與今天比較</span><b>${row && row[1] != null && todayRow[1] != null ? `今天 ${fmt(todayRow[1], 1)}（${todayRow[1] - row[1] >= 0 ? "+" : ""}${fmt(todayRow[1] - row[1], 1)}）` : "–"}</b></li>
+      </ul>
+      ${nearby.length ? `<h3 style="margin-top:12px">前後相關事件（前 14 天至後 3 天內）</h3><ul class="ev-list">${nearby.map(e => `<li data-d="${e.date}"><time>${e.date}</time><span><span class="tag ${EV_TAG(e)[0]}">${EV_TAG(e)[1]}</span>${escH(e.title)}</span></li>`).join("")}</ul>` : ""}`;
+    const hl = (HIST.headlines[day] || []).slice(0, 15);
+    document.getElementById("h-news").innerHTML = hl.length ? hl.map(h =>
+      `<li><time>${h.time.slice(11, 16)}</time><span><a href="${escH(h.link)}" target="_blank" rel="noopener">${escH(h.title.replace(/ - [^-]+$/, ""))}</a><span class="src-name">${escH(h.source || "")}</span></span></li>`).join("") : `<li class="empty">這一天沒有存檔的新聞標題。</li>`;
+    document.getElementById("h-news-note").textContent = HIST.headlines_since ? `新聞標題從 ${HIST.headlines_since} 起每日存檔，更早的日期只有每日報導數（見圖表）。` : "";
+    if (charts["c-hist"]) charts["c-hist"].draw();
+  }
+
+  function renderHistory() {
+    document.getElementById("ev-list").innerHTML = [...HIST.events].sort((a, b) => b.date.localeCompare(a.date)).map(e => {
+      const [cls, name] = EV_TAG(e), d = e.precision === "month" ? e.date.slice(0, 7) : e.date;
+      const title = e.source ? `<a href="${escH(e.source)}" target="_blank" rel="noopener">${escH(e.title)}</a>` : escH(e.title);
+      return `<li data-d="${e.date}"><time>${d}</time><span><span class="tag ${cls}">${name}</span>${title}${e.verified ? "" : ` <span class="muted">（待確認）</span>`}</span></li>`;
+    }).join("");
+    document.getElementById("h-gap").textContent = "圖中斷開的部分是國防部公告正文為空的期間（2024 年 1 月至 2025 年 2 月），該段不計分。";
+    drawHist();
+    selectDay(histDay || HIST.days[HIST.days.length - 1][0]);
+  }
+
+  function openHistory() {
+    if (HIST) { renderHistory(); return; }
+    fetch("data/history.json", { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(h => {
+        HIST = h;
+        const di = document.getElementById("h-date");
+        di.min = h.days[0][0]; di.max = h.days[h.days.length - 1][0];
+        renderHistory();
+      })
+      .catch(e => { document.getElementById("h-body").textContent = `歷史資料載入失敗（${e.message}）。`; });
+  }
+
+  function showTab(name) {
+    const hist = name === "hist";
+    document.getElementById("view-today").hidden = hist;
+    document.getElementById("view-history").hidden = !hist;
+    document.getElementById("tab-today").setAttribute("aria-pressed", String(!hist));
+    document.getElementById("tab-hist").setAttribute("aria-pressed", String(hist));
+    document.querySelector(".toolbar").style.display = hist ? "none" : "";
+    if (hist) openHistory(); else if (DATA) renderCharts();
+  }
+  document.getElementById("tab-today").addEventListener("click", () => showTab("today"));
+  document.getElementById("tab-hist").addEventListener("click", () => showTab("hist"));
+  const shift = (n) => { const d = new Date(histDay + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); selectDay(d.toISOString().slice(0, 10)); };
+  document.getElementById("h-prev").addEventListener("click", () => HIST && shift(-1));
+  document.getElementById("h-next").addEventListener("click", () => HIST && shift(1));
+  document.getElementById("h-today").addEventListener("click", () => HIST && selectDay(HIST.days[HIST.days.length - 1][0]));
+  document.getElementById("h-date").addEventListener("change", (e) => e.target.value && selectDay(e.target.value));
+  document.getElementById("view-history").addEventListener("click", (e) => { const li = e.target.closest("li[data-d]"); if (li && !e.target.closest("a")) { selectDay(li.dataset.d); window.scrollTo({ top: 0, behavior: "smooth" }); } });
+
+  function renderAll() { renderSummary(); renderToday(); if (typeof Chart !== "undefined") { renderCharts(); if (HIST && !document.getElementById("view-history").hidden) drawHist(); } }
+
+  document.querySelectorAll(".toolbar .seg button").forEach(b => {
     b.setAttribute("aria-pressed", String(b.dataset.range === range));
     b.addEventListener("click", () => {
       range = b.dataset.range;
       try { localStorage.setItem("range", range); } catch (e) {}
-      document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+      document.querySelectorAll(".toolbar .seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
       renderCharts();
     });
   });
@@ -426,7 +636,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     .then(d => {
       DATA = d;
       // 各區塊獨立繪製：一塊失敗不影響其他區塊
-      for (const fn of [renderSummary, renderSpikes, renderNews, renderStatus, renderCharts]) {
+      for (const fn of [renderSummary, renderToday, renderSpikes, renderNews, renderStatus, renderCharts]) {
         try { fn(); } catch (e) { console.error(fn.name, e); }
       }
       if (typeof Chart === "undefined") {

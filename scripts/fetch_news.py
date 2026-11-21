@@ -113,6 +113,13 @@ def main() -> int:
     for h in sorted(recent, key=lambda h: h["time"], reverse=True):
         uniq.setdefault(h["title"].rsplit(" - ", 1)[0], h)
     HEADLINES_PATH.write_text(json.dumps(list(uniq.values())[:60], ensure_ascii=False, indent=1), encoding="utf-8")
+    # 累積存檔：每天新增的標題併入 headlines_archive.json（以標題去重），供網頁「歷史查閱」使用
+    arch_path = DATA / "headlines_archive.json"
+    arch = json.loads(arch_path.read_text(encoding="utf-8")) if arch_path.exists() else []
+    seen = {h["title"].rsplit(" - ", 1)[0] for h in arch}
+    arch += [h for k, h in uniq.items() if k not in seen]
+    arch.sort(key=lambda h: h["time"])
+    arch_path.write_text(json.dumps(arch, ensure_ascii=False, indent=0), encoding="utf-8")
 
     total = len(days) * len(KEYWORDS) + 1
     msg = f"查詢 {total} 次，失敗 {errors} 次；資料涵蓋至 {days[-1]}"

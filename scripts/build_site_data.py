@@ -165,11 +165,12 @@ def main() -> None:
 
     # 全部歷史分數（缺資料日為 null）；級距門檻取自這份歷史
     first = min(k for k in pcts["military"]["共機架次（7日均）"])
-    history, vals = [], []
+    history, vals, hist_rows = [], [], []
     day = first
     while day <= today:
-        o, _ = score_on(day)
+        o, dd = score_on(day)
         history.append([day.isoformat(), o])
+        hist_rows.append([day.isoformat(), o] + [dd[k]["score"] for k in ("military", "market", "news")])
         if o is not None:
             vals.append(o)
         day += dt.timedelta(days=1)
@@ -185,9 +186,56 @@ def main() -> None:
                 spikes.append({"date": k.isoformat(), "name": label, "value": s[k], "percentile": p})
     spikes.sort(key=lambda x: (x["date"], x["percentile"]), reverse=True)
 
+    # ---- 今日最新資訊
+    headlines_path = DATA / "headlines.json"
+    headlines = json.loads(headlines_path.read_text(encoding="utf-8")) if headlines_path.exists() else []
+    daily_pct = {lb: expanding_percentiles(s_) for lb, s_ in daily.items()}
+    air_avg7 = rolling_mean(aircraft, 7)
+    today_info = None
+    if mnd_rows:
+        last = d(mnd_rows[-1]["date"])
+        prev = d(mnd_rows[-2]["date"]) if len(mnd_rows) > 1 else None
+        cur = {"date": last.isoformat(), "aircraft": int(aircraft[last]), "crossing": int(crossing[last]), "ships": int(ships[last]),
+               "aircraft_prev": int(aircraft[prev]) if prev and (last - prev).days == 1 else None,
+               "aircraft_avg7": round(air_avg7[last], 1),
+               "aircraft_pct": daily_pct["共機架次"].get(last), "crossing_pct": daily_pct["逾越中線/進入空域"].get(last),
+               "ships_pct": daily_pct["共艦艘數"].get(last)}
+        prev_overall = next((o for dday, o in reversed(history[:-1]) if o is not None), None)
+        txt = f"{cur['date']} 國防部公告：共機 {cur['aircraft']} 架次（逾越中線／進入空域 {cur['crossing']} 架次）、共艦 {cur['ships']} 艘。"
+        if cur["aircraft_pct"] is not None:
+            rel = "高於" if cur["aircraft"] > cur["aircraft_avg7"] else "低於" if cur["aircraft"] < cur["aircraft_avg7"] else "等於"
+            txt += f"共機架次{rel}近 7 日平均（{cur['aircraft_avg7']}），位於歷史第 {cur['aircraft_pct']:.0f} 百分位。"
+        if overall is not None:
+            txt += f"綜合指數 {overall}（{level_of(overall, thresholds)}）"
+            if prev_overall is not None:
+                diff = round(overall - prev_overall, 1)
+                txt += f"，較前一日{'上升' if diff > 0 else '下降' if diff < 0 else '持平'}" + (f" {abs(diff)}" if diff else "")
+            txt += "。"
+        if spikes and spikes[0]["date"] == cur["date"]:
+            txt += "今日有單日突發：" + "、".join(f"{x['name']}{x['value']:.0f}" for x in spikes if x["date"] == cur["date"]) + "。"
+        today_info = dict(cur, summary=txt, headlines=headlines[:5])
+    fresh = {"mnd": max(aircraft).isoformat() if aircraft else None, "taiex": max(taiex).isoformat() if taiex else None,
+             "twd": max(twd).isoformat() if twd else None, "news": max(total).isoformat() if total else None}
+
+    # ---- 歷史查閱資料：每日分數、事件、新聞標題存檔
+    events_path = DATA / "events.json"
+    archive_path = DATA / "headlines_archive.json"
+    archive = json.loads(archive_path.read_text(encoding="utf-8")) if archive_path.exists() else []
+    by_date: dict[str, list] = defaultdict(list)
+    for h in archive:
+        by_date[h["time"][:10]].append({"time": h["time"], "title": h["title"], "link": h.get("link", ""), "source": h.get("source", "")})
+    history_out = {
+        "as_of": today.isoformat(),
+        "thresholds": thresholds, "level_names": LEVEL_NAMES,
+        "days": hist_rows,
+        "events": json.loads(events_path.read_text(encoding="utf-8")) if events_path.exists() else [],
+        "headlines": by_date,
+        "headlines_since": min(by_date) if by_date else None,
+    }
+    (OUT.parent / "history.json").write_text(json.dumps(history_out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+
     news_dates = sorted({k for kw in news_by_kw.values() for k in kw})
     status_path = DATA / "status.json"
-    headlines_path = DATA / "headlines.json"
     out = {
         "generated_at": dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M"),
         "as_of": today.isoformat(),
@@ -195,6 +243,8 @@ def main() -> None:
                   "thresholds": thresholds, "level_names": LEVEL_NAMES, "level_pcts": LEVEL_PCTS},
         "score_history": history,
         "spikes": spikes,
+        "today": today_info,
+        "freshness": fresh,
         "series": {
             "mnd": [{"date": r["date"], "aircraft": int(r["aircraft"]), "crossing": int(r["aircraft_crossing"]),
                      "ships": int(r["ships"]), "official": int(r["official_ships"]), "balloons": int(r["balloons"])}
@@ -204,7 +254,7 @@ def main() -> None:
             "news": {"dates": news_dates,
                      "keywords": {kw: [vals_.get(x, 0) for x in news_dates] for kw, vals_ in news_by_kw.items()}},
         },
-        "headlines": json.loads(headlines_path.read_text(encoding="utf-8")) if headlines_path.exists() else [],
+        "headlines": headlines,
         "status": json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists() else {},
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
