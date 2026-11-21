@@ -21,7 +21,7 @@ from common import DATA, RAW, fetch, html_to_text, log, read_jsonl, roc_to_iso, 
 BASE = "https://www.mnd.gov.tw"
 RAW_PATH = RAW / "mnd.jsonl"
 CSV_PATH = DATA / "mnd.csv"
-DELAY = 0.8  # 每次請求間隔（秒），避免造成對方負擔
+DELAY = 1.0  # 每次請求間隔（秒），避免造成對方負擔
 FIELDS = ["date", "id", "aircraft", "aircraft_crossing", "ships", "official_ships", "balloons", "format", "parse_ok"]
 
 ITEM_RE = re.compile(r'href="(?:/)?news/plaact/(\d+)"[^>]*>(.*?)</a>', re.S)
@@ -91,11 +91,13 @@ def main() -> int:
 
     if not args.reparse:
         # 1) 先掃列表頁，找出還沒抓過的公告
-        todo, page, max_pages = [], 1, 400 if args.backfill else 10
+        todo, seen, page, max_pages = [], set(), 1, 400 if args.backfill else 10
         while page <= max_pages:
             items = list_page(page)
-            if not items:
+            # 超過最後一頁時網站會重複回傳最後一頁，遇到看過的公告就停
+            if not items or items[0]["id"] in seen:
                 break
+            seen.update(i["id"] for i in items)
             fresh = [i for i in items if i["id"] not in known]
             todo += fresh
             if page % 20 == 0 or not args.backfill:
@@ -105,7 +107,7 @@ def main() -> int:
             page += 1
             time.sleep(DELAY)
 
-        # 2) 以少量併發抓內文（4 條連線、每條間隔 DELAY 秒），每 100 篇存檔一次
+        # 2) 以少量併發抓內文（3 條連線、每條間隔 DELAY 秒），每 100 篇存檔一次
         def grab(it):
             try:
                 return dict(it, text=detail_text(it["id"]))
@@ -115,7 +117,7 @@ def main() -> int:
             finally:
                 time.sleep(DELAY)
 
-        with ThreadPoolExecutor(max_workers=4) as pool:
+        with ThreadPoolExecutor(max_workers=3) as pool:
             for n, it in enumerate(pool.map(grab, todo), 1):
                 if it:
                     records.append(it)

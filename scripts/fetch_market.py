@@ -53,7 +53,7 @@ def update_taiex(backfill: bool) -> str:
     todo = [m for m in months(START if backfill else recent)
             if f"{m:%Y-%m}" not in have or m >= recent.replace(day=1) or f"{m:%Y-%m}" == this_month]
     blocked = False
-    for m in todo:
+    for m in sorted(todo, reverse=True):  # 由新到舊：評分最需要近一年的資料
         url = f"https://www.twse.com.tw/rwd/zh/afterTrading/FMTQIK?date={m:%Y%m}01&response=json"
         try:
             j = json.loads(fetch(url, retries=2, backoff=10))
