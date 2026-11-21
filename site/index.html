@@ -80,6 +80,11 @@ header.top { display: flex; flex-wrap: wrap; justify-content: space-between; ali
 .dim-score { font-family: var(--font-num); font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 .bar { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
 .bar span { display: block; height: 100%; background: var(--lvl, var(--ink-3)); border-radius: 3px; }
+.method h3 { margin: 14px 0 6px; font-size: .95rem; }
+.method h3:first-child { margin-top: 0; }
+.method ol, .method ul { margin: 0; padding-left: 1.3em; display: grid; gap: 6px; font-size: .88rem; color: var(--ink-2); line-height: 1.6; }
+.method p { margin: 0; font-size: .88rem; color: var(--ink-2); line-height: 1.6; }
+#spikes-panel { margin-bottom: 16px; }
 .parts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .82rem; color: var(--ink-2); }
 .parts li { display: flex; justify-content: space-between; gap: 8px; }
 .parts li b { font-weight: 400; font-family: var(--font-num); color: var(--ink); white-space: nowrap; }
@@ -143,11 +148,16 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
         <div class="score-big" id="score">–<small> / 100</small></div>
         <span class="pill" id="level"><i></i><span>–</span></span>
       </div>
-      <span class="tag-prov">暫定算法・第 3 階段將改為正式模型</span>
+      <span class="tag-prov">正式模型 v1・詳見下方「方法說明」</span>
       <div class="spark"><canvas id="c-score" aria-label="綜合指數近期走勢"></canvas></div>
-      <div class="muted">分數為各指標在過去一年中的相對位置（百分位），越高代表越緊張，不代表開戰機率。</div>
+      <div class="muted">分數為各指標相對於歷史常態的位置（百分位），越高代表越緊張。這是統計指標，不是預測，也不代表開戰機率。</div>
     </div>
     <div class="panel dims" id="dims"></div>
+  </div>
+
+  <div class="panel" id="spikes-panel" hidden>
+    <h3>單日突發（近 7 天）</h3>
+    <ul class="parts" id="spikes"></ul>
   </div>
 
   <div class="toolbar">
@@ -199,6 +209,30 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     </div>
   </section>
 
+  <section id="method">
+    <h2>方法說明</h2>
+    <div class="panel method">
+      <h3>指數怎麼算</h3>
+      <ol>
+        <li><b>指標</b>：軍事（共機架次、逾越中線／進入空域架次、共艦艘數，各取近 7 日平均）、市場（加權指數 5 日跌幅、新台幣 20 日貶值幅度）、新聞輿論（八組關鍵字的每日報導數，近 7 日平均）。</li>
+        <li><b>百分位</b>：每個指標與「截至當天為止的全部歷史」比較，換成 0–100 的百分位；只用當天以前的資料。例如 80 代表「比歷史上八成的日子更緊張」。</li>
+        <li><b>權重</b>：綜合分數 = 軍事 60%＋市場 20%＋新聞 20%。軍事資料最直接、品質最好，所以占比最高。市場或新聞暫缺時，其權重按比例分給其他面向；軍事缺資料時不計分，顯示「資料不足」。</li>
+        <li><b>級距</b>：依綜合分數自己的歷史分布定義：低於第 50 百分位為「平穩」、50–75「略升」、75–90「偏高」、90–97「高」、97 以上「極高」。「高」以上代表比歷史上九成的日子更緊張。</li>
+        <li><b>單日突發</b>：獨立於綜合分數之外，近 7 天內共機、逾越中線或共艦的單日值達歷史第 95 百分位，就列出，避免單日劇烈變化被平均掉。</li>
+      </ol>
+      <h3>已知限制</h3>
+      <ul>
+        <li>國防部公告自 2022 年 8 月起才有一致格式，更早的資料不納入。</li>
+        <li>2024 年 1 月至 2025 年 2 月的公告只有圖片、無法自動讀取，這段期間不計分，走勢圖會出現空缺。</li>
+        <li>新聞熱度只能回補約 90 天，基準期短，新聞面向的分數較不穩定。</li>
+        <li>新台幣匯率來源（FRED）更新較慢，可能落後數日。</li>
+        <li>百分位是「相對自己歷史」的位置：長期維持高位時，指數不會持續上升。</li>
+      </ul>
+      <h3>免責聲明</h3>
+      <p>本站為個人觀察用途，資料取自公開來源並自動處理，可能有延遲或錯誤。指數僅反映公開資料中的相對變化，<b>不是預測，也不代表開戰機率</b>，不構成任何投資、安全或行動建議。</p>
+    </div>
+  </section>
+
   <section>
     <h2>資料來源狀態</h2>
     <div class="panel table-wrap">
@@ -207,7 +241,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
         <tbody id="status"></tbody>
       </table>
     </div>
-    <p class="note">本頁為個人觀察用的綜合指標，資料全部來自公開來源並自動更新。國防部數據自 2022 年下半年起採用一致格式，較早的公告不納入圖表與評分。2024 年 1 月至 2025 年 2 月的公告只有圖片、沒有文字，暫時無法自動讀取，圖表上顯示為空白。指數只反映「相對於過去一年」的變化，不是預測。</p>
+    <p class="note">本頁為個人觀察用的綜合指標，資料全部來自公開來源並自動更新。國防部數據自 2022 年 8 月起採用一致格式，較早的公告不納入圖表與評分。2024 年 1 月至 2025 年 2 月的公告只有圖片、沒有文字，暫時無法自動讀取，圖表與指數在這段期間為空白。</p>
   </section>
 </div>
 
@@ -222,8 +256,12 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
   try { const r = localStorage.getItem("range"); if (r) range = r; } catch (e) {}
 
   const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-  const levelColor = (s) => s == null ? css("--ink-3") : s >= 80 ? css("--critical") : s >= 60 ? css("--serious") : s >= 40 ? css("--warning") : css("--good");
-  const levelName = (s) => s == null ? "資料不足" : s >= 80 ? "高" : s >= 60 ? "偏高" : s >= 40 ? "中" : "低";
+  // 綜合分數的級距門檻來自歷史分布（見 dashboard.json）；面向分數本身就是百分位，用固定分界
+  const LV_COLORS = ["--good", "--warning", "--serious", "--critical", "--critical"];
+  const LV_NAMES = ["平穩", "略升", "偏高", "高", "極高"];
+  const lvIdx = (s, th) => th.reduce((n, t) => n + (s >= t ? 1 : 0), 0);
+  const levelColor = (s, th = [50, 75, 90, 97]) => s == null ? css("--ink-3") : css(LV_COLORS[lvIdx(s, th)]);
+  const levelName = (s, th = [50, 75, 90, 97]) => s == null ? "資料不足" : LV_NAMES[lvIdx(s, th)];
   const fmt = (v, d = 0) => v == null ? "–" : Number(v).toLocaleString("zh-TW", { maximumFractionDigits: d, minimumFractionDigits: d });
 
   function cutoff() {
@@ -328,8 +366,8 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     const sc = DATA.score;
     document.getElementById("score").innerHTML = `${fmt(sc.overall, 0)}<small> / 100</small>`;
     const lv = document.getElementById("level");
-    lv.style.setProperty("--lvl", levelColor(sc.overall));
-    lv.querySelector("span").textContent = `緊張程度：${levelName(sc.overall)}`;
+    lv.style.setProperty("--lvl", levelColor(sc.overall, sc.thresholds));
+    lv.querySelector("span").textContent = `緊張程度：${levelName(sc.overall, sc.thresholds)}`;
     document.getElementById("meta").textContent = `資料截至 ${DATA.as_of}・產生於 ${DATA.generated_at}`;
 
     document.getElementById("dims").innerHTML = Object.values(sc.dims).map(d => `
@@ -338,6 +376,13 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
         <div class="bar" style="--lvl:${levelColor(d.score)}"><span style="width:${d.score ?? 0}%"></span></div>
         <ul class="parts">${d.parts.map(p => `<li><span>${p.name}</span><b title="原始值 ${fmt(p.value, 2)}">${p.percentile == null ? "資料不足" : fmt(p.percentile, 0)}</b></li>`).join("")}</ul>
       </div>`).join("");
+  }
+
+  function renderSpikes() {
+    const sp = DATA.spikes || [];
+    document.getElementById("spikes-panel").hidden = !sp.length;
+    document.getElementById("spikes").innerHTML = sp.map(x =>
+      `<li><span>${x.date.slice(5)}　${x.name}</span><b>${x.value}（歷史第 ${fmt(x.percentile, 0)} 百分位）</b></li>`).join("");
   }
 
   function renderNews() {
@@ -381,7 +426,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     .then(d => {
       DATA = d;
       // 各區塊獨立繪製：一塊失敗不影響其他區塊
-      for (const fn of [renderSummary, renderNews, renderStatus, renderCharts]) {
+      for (const fn of [renderSummary, renderSpikes, renderNews, renderStatus, renderCharts]) {
         try { fn(); } catch (e) { console.error(fn.name, e); }
       }
       if (typeof Chart === "undefined") {

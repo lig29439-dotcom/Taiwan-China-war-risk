@@ -1,9 +1,15 @@
-"""整合各來源資料，計算「暫定」綜合分數，輸出 site/data/dashboard.json。
+"""整合各來源資料，計算綜合緊張指數（正式模型 v1），輸出 site/data/dashboard.json。
 
-暫定評分方法（第 3 階段會換成正式模型）：
-  每個指標取「近 7 日平均」（市場取 5/20 日變化），
-  與過去 365 天的同類數值比較，換算成百分位（0–100，越高越緊張）。
-  三個面向（軍事、市場、新聞）各自平均後，再等權平均成綜合分數。
+模型說明（方法說明頁與此處一致）：
+  1. 每個指標取「近 7 日平均」（市場取 5／20 日變化）。
+  2. 與「截至當天為止的全部歷史」比較，換算成百分位（0–100，越高越緊張）；
+     只用當天以前的資料，不偷看未來。
+  3. 面向分數 = 該面向各指標百分位的平均。
+  4. 綜合分數 = 軍事 60%＋市場 20%＋新聞 20%。軍事缺資料時不計分（顯示資料不足）；
+     市場或新聞缺資料時，其權重按比例分給其餘面向。
+  5. 緊張程度級距以「綜合分數自己的歷史分布」定義：
+     <P50 平穩、P50–75 略升、P75–90 偏高、P90–97 高、≥P97 極高。
+  6. 另外獨立標示「單日突發」：近 7 天內，共機／逾越中線／共艦的單日值達歷史 95 百分位者。
 """
 from __future__ import annotations
 
@@ -16,8 +22,6 @@ from collections import defaultdict
 from common import DATA, ROOT, log
 
 OUT = ROOT / "site" / "data" / "dashboard.json"
-WINDOW = 365
-LEVELS = [(80, "高"), (60, "偏高"), (40, "中"), (0, "低")]
 
 
 def d(s: str) -> dt.date:
@@ -54,29 +58,48 @@ def pct_change(series: dict[dt.date, float], days: int) -> dict[dt.date, float]:
     return out
 
 
-def percentile_at(series: dict[dt.date, float], day: dt.date, min_obs: int = 30) -> float | None:
-    """day 當天（或之前最近一筆）的值，在過去 365 天中的百分位。"""
-    keys = sorted(series)
-    i = bisect.bisect_right(keys, day) - 1
-    if i < 0 or (day - keys[i]).days > 10:  # 資料太舊就不算
-        return None
-    lo = bisect.bisect_left(keys, day - dt.timedelta(days=WINDOW))
-    ref = [series[k] for k in keys[lo:i + 1]]
-    if len(ref) < min_obs:
-        return None
-    cur = series[keys[i]]
-    return round(100 * sum(1 for v in ref if v <= cur) / len(ref), 1)
-
-
 def mean(xs):
     xs = [x for x in xs if x is not None]
     return round(sum(xs) / len(xs), 1) if xs else None
 
 
-def level(score):
+WEIGHTS = {"military": 0.6, "market": 0.2, "news": 0.2}
+NAMES = {"military": "軍事", "market": "市場", "news": "新聞輿論"}
+LEVEL_NAMES = ["平穩", "略升", "偏高", "高", "極高"]
+LEVEL_PCTS = [50, 75, 90, 97]  # 綜合分數歷史分布的分界百分位
+SPIKE_PCT = 95
+STALE_DAYS = 10
+
+
+def expanding_percentiles(series: dict[dt.date, float], min_obs: int = 60) -> dict[dt.date, float]:
+    """每個日期的值，在「截至該日（含）全部歷史」中的百分位。"""
+    ref: list[float] = []
+    out = {}
+    for k in sorted(series):
+        bisect.insort(ref, series[k])
+        if len(ref) >= min_obs:
+            out[k] = round(100 * bisect.bisect_right(ref, series[k]) / len(ref), 1)
+    return out
+
+
+def latest_on(series: dict, day: dt.date):
+    """day 當天或之前最近一筆（超過 STALE_DAYS 視為沒有）。回傳 (日期, 值)。"""
+    keys = [k for k in series if k <= day and (day - k).days <= STALE_DAYS]
+    if not keys:
+        return None, None
+    k = max(keys)
+    return k, series[k]
+
+
+def quantile(sorted_vals: list[float], pct: float) -> float:
+    i = min(len(sorted_vals) - 1, int(pct / 100 * len(sorted_vals)))
+    return sorted_vals[i]
+
+
+def level_of(score, thresholds):
     if score is None:
         return "資料不足"
-    return next(name for th, name in LEVELS if score >= th)
+    return LEVEL_NAMES[sum(score >= t for t in thresholds)]
 
 
 def main() -> None:
@@ -117,28 +140,50 @@ def main() -> None:
             "關鍵字新聞量（7日均）": rolling_mean(dict(total), 7),
         },
     }
-    names = {"military": "軍事", "market": "市場", "news": "新聞輿論"}
+    # 事先算好每個指標的歷史百分位序列（新聞歷史較短，門檻放寬為 30 筆）
+    pcts = {key: {lb: expanding_percentiles(s, 30 if key == "news" else 60) for lb, s in inds.items()}
+            for key, inds in indicators.items()}
 
     def score_on(day):
         dims = {}
         for key, inds in indicators.items():
             parts = []
             for label, s in inds.items():
-                keys = [k for k in s if k <= day]
-                parts.append({"name": label, "percentile": percentile_at(s, day),
-                              "value": round(s[max(keys)], 2) if keys else None})
-            dims[key] = {"name": names[key], "score": mean(p["percentile"] for p in parts), "parts": parts}
-        overall = mean(v["score"] for v in dims.values())
+                _, p = latest_on(pcts[key][label], day)
+                k, v = latest_on(s, day)
+                parts.append({"name": label, "percentile": p, "value": round(v, 2) if v is not None else None})
+            dims[key] = {"name": NAMES[key], "weight": WEIGHTS[key], "score": mean(p["percentile"] for p in parts), "parts": parts}
+        if dims["military"]["score"] is None:
+            return None, dims  # 軍事缺資料：不計分
+        avail = {k: v for k, v in dims.items() if v["score"] is not None}
+        wsum = sum(WEIGHTS[k] for k in avail)
+        overall = round(sum(v["score"] * WEIGHTS[k] for k, v in avail.items()) / wsum, 1)
         return overall, dims
 
     today = max([max(s) for s in (aircraft, taiex, twd) if s] + [dt.date.today() - dt.timedelta(days=1)])
     overall, dims = score_on(today)
-    history = []
-    for i in range(WINDOW, -1, -1):
-        day = today - dt.timedelta(days=i)
+
+    # 全部歷史分數（缺資料日為 null）；級距門檻取自這份歷史
+    first = min(k for k in pcts["military"]["共機架次（7日均）"])
+    history, vals = [], []
+    day = first
+    while day <= today:
         o, _ = score_on(day)
+        history.append([day.isoformat(), o])
         if o is not None:
-            history.append([day.isoformat(), o])
+            vals.append(o)
+        day += dt.timedelta(days=1)
+    vals.sort()
+    thresholds = [quantile(vals, p) for p in LEVEL_PCTS]
+
+    # ---- 單日突發：近 7 天，單日值達歷史 95 百分位
+    daily = {"共機架次": aircraft, "逾越中線/進入空域": crossing, "共艦艘數": ships}
+    spikes = []
+    for label, s in daily.items():
+        for k, p in expanding_percentiles(s).items():
+            if today - dt.timedelta(days=6) <= k <= today and p >= SPIKE_PCT and s[k] > 0:
+                spikes.append({"date": k.isoformat(), "name": label, "value": s[k], "percentile": p})
+    spikes.sort(key=lambda x: (x["date"], x["percentile"]), reverse=True)
 
     news_dates = sorted({k for kw in news_by_kw.values() for k in kw})
     status_path = DATA / "status.json"
@@ -146,8 +191,10 @@ def main() -> None:
     out = {
         "generated_at": dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).strftime("%Y-%m-%d %H:%M"),
         "as_of": today.isoformat(),
-        "score": {"overall": overall, "level": level(overall), "provisional": True, "dims": dims},
+        "score": {"overall": overall, "level": level_of(overall, thresholds), "provisional": False, "dims": dims,
+                  "thresholds": thresholds, "level_names": LEVEL_NAMES, "level_pcts": LEVEL_PCTS},
         "score_history": history,
+        "spikes": spikes,
         "series": {
             "mnd": [{"date": r["date"], "aircraft": int(r["aircraft"]), "crossing": int(r["aircraft_crossing"]),
                      "ships": int(r["ships"]), "official": int(r["official_ships"]), "balloons": int(r["balloons"])}
@@ -155,14 +202,15 @@ def main() -> None:
             "taiex": [[k.isoformat(), v] for k, v in sorted(taiex.items())],
             "twd": [[k.isoformat(), v] for k, v in sorted(twd.items())],
             "news": {"dates": news_dates,
-                     "keywords": {kw: [vals.get(x, 0) for x in news_dates] for kw, vals in news_by_kw.items()}},
+                     "keywords": {kw: [vals_.get(x, 0) for x in news_dates] for kw, vals_ in news_by_kw.items()}},
         },
         "headlines": json.loads(headlines_path.read_text(encoding="utf-8")) if headlines_path.exists() else [],
         "status": json.loads(status_path.read_text(encoding="utf-8")) if status_path.exists() else {},
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    log.info("輸出 %s：綜合分數 %s（%s），截至 %s", OUT.name, overall, level(overall), today)
+    log.info("輸出 %s：綜合分數 %s（%s），截至 %s；級距門檻 %s；單日突發 %d 筆",
+             OUT.name, overall, level_of(overall, thresholds), today, thresholds, len(spikes))
 
 
 if __name__ == "__main__":
