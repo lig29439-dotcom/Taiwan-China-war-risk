@@ -51,16 +51,20 @@ def _num(pattern: str, text: str) -> int | None:
 
 
 def parse(rec: dict) -> dict:
-    """從原文解析數字。只有新版（2022 下半年起）格式同時報告共機與共艦，視為可比較資料。"""
+    """從原文解析數字。以「迄 0600 時止」每日完整統計的格式（2022-11 起）才視為可比較資料，視為可比較資料。"""
     t = rec["text"]
     row = {"date": rec["date"], "id": rec["id"], "aircraft": None, "aircraft_crossing": None,
            "ships": None, "official_ships": None, "balloons": None, "format": "legacy", "parse_ok": False}
-    if "活動動態" in t and "共艦" in t:
+    if re.search(r"迄(?:今日)?\s*\d{4}\s*時止", t):  # 「前日 0600 至當日 0600」的每日完整統計
         row["format"] = "current"
         row["aircraft"] = _num(r"共機\s*(\d+)\s*架次?", t)
-        if row["aircraft"] is None and re.search(r"(未偵獲|無)共機", t):
+        row["ships"] = _num(r"(?:共)?艦\s*(\d+)\s*艘", t)
+        # 「活動動態」只寫共艦、沒提共機數量的日子，代表當天未偵獲共機
+        if row["aircraft"] is None and (re.search(r"(未偵獲|無偵獲|無)共機", t) or row["ships"] is not None):
             row["aircraft"] = 0
-        row["ships"] = _num(r"共艦\s*(\d+)\s*艘", t)
+        # 只寫共機、沒提共艦數量的日子，代表當天未偵獲共艦
+        if row["ships"] is None and row["aircraft"] is not None:
+            row["ships"] = 0
         # 「逾越中線」或「進入…空域」的架次
         row["aircraft_crossing"] = _num(r"(?:逾越中線|進入)[^0-9（）()]{0,30}?(\d+)\s*架次?", t)
         if row["aircraft_crossing"] is None and row["aircraft"] is not None:

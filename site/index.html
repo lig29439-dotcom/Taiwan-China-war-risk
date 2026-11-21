@@ -207,7 +207,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
         <tbody id="status"></tbody>
       </table>
     </div>
-    <p class="note">本頁為個人觀察用的綜合指標，資料全部來自公開來源並自動更新。國防部數據自 2022 年下半年起採用一致格式，較早的公告不納入圖表與評分。指數只反映「相對於過去一年」的變化，不是預測。</p>
+    <p class="note">本頁為個人觀察用的綜合指標，資料全部來自公開來源並自動更新。國防部數據自 2022 年下半年起採用一致格式，較早的公告不納入圖表與評分。2024 年 1 月至 2025 年 2 月的公告只有圖片、沒有文字，暫時無法自動讀取，圖表上顯示為空白。指數只反映「相對於過去一年」的變化，不是預測。</p>
   </section>
 </div>
 
@@ -232,15 +232,24 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     return d.toISOString().slice(0, 10);
   }
 
-  function movingAvg(rows, key, days = 7) {
-    const out = [];
-    for (let i = 0; i < rows.length; i++) {
-      const end = new Date(rows[i].date), start = new Date(end); start.setDate(start.getDate() - (days - 1));
-      let sum = 0, n = 0;
-      for (let j = i; j >= 0 && new Date(rows[j].date) >= start; j--) { sum += rows[j][key]; n++; }
-      out.push(+(sum / n).toFixed(2));
+  // 把缺漏的日期補成 null，讓資料空窗在圖上顯示為斷開，而不是被壓縮掉
+  function fillDays(rows) {
+    if (!rows.length) return rows;
+    const byDate = new Map(rows.map(r => [r.date, r])), out = [];
+    const d = new Date(rows[0].date + "T00:00:00Z"), end = new Date(rows[rows.length - 1].date + "T00:00:00Z");
+    for (; d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+      const k = d.toISOString().slice(0, 10);
+      out.push(byDate.get(k) || { date: k });
     }
     return out;
+  }
+
+  function movingAvg(rows, key, days = 7) {
+    // rows 已逐日連續；只平均有資料的日子，整週無資料則為 null
+    return rows.map((_, i) => {
+      const vals = rows.slice(Math.max(0, i - days + 1), i + 1).map(r => r[key]).filter(v => v != null);
+      return vals.length ? +(vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(2) : null;
+    });
   }
 
   function baseOptions(extra = {}) {
@@ -270,7 +279,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     const labels = rows.map(r => r.date), avg = movingAvg(rows, key);
     draw(id, {
       data: { labels, datasets: [
-        { type: "bar", label: `每日${unit}`, data: rows.map(r => r[key]), backgroundColor: color + "55", borderRadius: 2, barPercentage: 1, categoryPercentage: .9, order: 2 },
+        { type: "bar", label: `每日${unit}`, data: rows.map(r => r[key] ?? null), backgroundColor: color + "55", borderRadius: 2, barPercentage: 1, categoryPercentage: .9, order: 2 },
         { type: "line", label: "7 日平均", data: avg, borderColor: color, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: .25, order: 1 },
       ] },
       options: baseOptions({ legend: true }),
@@ -290,7 +299,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
   function renderCharts() {
     if (typeof Chart === "undefined") return;
     const c = cutoff(), s = DATA.series;
-    const mnd = s.mnd.filter(r => r.date >= c);
+    const mnd = fillDays(s.mnd.filter(r => r.date >= c));
     barLine("c-air", mnd, "aircraft", "架次", css("--s1"));
     barLine("c-ship", mnd, "ships", "艘數", css("--s7"));
     line("c-taiex", s.taiex.filter(p => p[0] >= c), "加權指數", css("--s3"), 2);
