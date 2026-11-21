@@ -66,7 +66,7 @@ def update_taiex(backfill: bool) -> str:
                 y, mo, d = (int(x) for x in row[0].split("/"))
                 data[f"{y + 1911:04d}-{mo:02d}-{d:02d}"] = float(row[4].replace(",", ""))
             save(TAIEX_PATH, data)
-        time.sleep(6)  # 證交所對頻繁請求會封鎖，放慢速度
+        time.sleep(10)  # 證交所對頻繁請求會封鎖，放慢速度
     if not data:
         raise RuntimeError("沒有任何加權指數資料")
     missing = sum(1 for m in months(START) if f"{m:%Y-%m}" not in {k[:7] for k in data})
