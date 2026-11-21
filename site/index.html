@@ -312,7 +312,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
       <div class="panel">
         <h3>事件時間軸（軍演、兩岸交流政策轉折）</h3>
         <ul class="ev-list" id="ev-list"></ul>
-        <p class="muted">事件由人工整理，標示「待確認」者表示日期或內容尚未逐一查證；點選事件可跳到該日。交流事件僅收錄公開報導中的重大政策轉折，不代表完整清單。</p>
+        <p class="muted">事件由人工整理，標示「待確認」者表示日期或內容尚未逐一查證；點選事件可跳到該日。交流事件僅收錄公開報導中的重大政策轉折，不代表完整清單；日期約略的交流事件，其「趨緩」可能只是口頭上的緩和，不一定代表實際開放。</p>
       </div>
     </section>
   </div>
@@ -501,6 +501,8 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
   let HIST = null, histDay = null;
   const EV_COLOR = (e) => e.type === "military" ? "--critical" : e.tone === "ease" ? "--good" : "--serious";
   const EV_TAG = (e) => e.type === "military" ? ["military", "軍演"] : e.tone === "ease" ? ["ease", "交流趨緩"] : ["tighten", "交流收緊"];
+  // 日期不精確的交流事件：加註提醒，宣布與口頭緩和不等於實際開放
+  const caveat = (e) => e.type === "exchange" && (e.precision === "month" || !e.verified) ? ` <span class="muted">（日期約略；此類消息可能只是口頭上的緩和，不一定代表實際開放）</span>` : "";
   const escH = (x) => String(x).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
 
   const eventPlugin = {
@@ -565,7 +567,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
         <li><span>新台幣（1 美元兌）</span><b>${tw ? fmt(tw[1], 3) : "–"}</b></li>
         <li><span>與今天比較</span><b>${row && row[1] != null && todayRow[1] != null ? `今天 ${fmt(todayRow[1], 1)}（${todayRow[1] - row[1] >= 0 ? "+" : ""}${fmt(todayRow[1] - row[1], 1)}）` : "–"}</b></li>
       </ul>
-      ${nearby.length ? `<h3 style="margin-top:12px">前後相關事件（前 14 天至後 3 天內）</h3><ul class="ev-list">${nearby.map(e => `<li data-d="${e.date}"><time>${e.date}</time><span><span class="tag ${EV_TAG(e)[0]}">${EV_TAG(e)[1]}</span>${escH(e.title)}</span></li>`).join("")}</ul>` : ""}`;
+      ${nearby.length ? `<h3 style="margin-top:12px">前後相關事件（前 14 天至後 3 天內）</h3><ul class="ev-list">${nearby.map(e => `<li data-d="${e.date}"><time>${e.date}</time><span><span class="tag ${EV_TAG(e)[0]}">${EV_TAG(e)[1]}</span>${escH(e.title)}${caveat(e)}</span></li>`).join("")}</ul>` : ""}`;
     const hl = (HIST.headlines[day] || []).slice(0, 15);
     document.getElementById("h-news").innerHTML = hl.length ? hl.map(h =>
       `<li><time>${h.time.slice(11, 16)}</time><span><a href="${escH(h.link)}" target="_blank" rel="noopener">${escH(h.title.replace(/ - [^-]+$/, ""))}</a><span class="src-name">${escH(h.source || "")}</span></span></li>`).join("") : `<li class="empty">這一天沒有存檔的新聞標題。</li>`;
@@ -577,7 +579,7 @@ th { font-weight: 500; color: var(--ink-2); border-top: 0; }
     document.getElementById("ev-list").innerHTML = [...HIST.events].sort((a, b) => b.date.localeCompare(a.date)).map(e => {
       const [cls, name] = EV_TAG(e), d = e.precision === "month" ? e.date.slice(0, 7) : e.date;
       const title = e.source ? `<a href="${escH(e.source)}" target="_blank" rel="noopener">${escH(e.title)}</a>` : escH(e.title);
-      return `<li data-d="${e.date}"><time>${d}</time><span><span class="tag ${cls}">${name}</span>${title}${e.verified ? "" : ` <span class="muted">（待確認）</span>`}</span></li>`;
+      return `<li data-d="${e.date}"><time>${d}</time><span><span class="tag ${cls}">${name}</span>${title}${e.verified ? "" : ` <span class="muted">（待確認）</span>`}${caveat(e)}</span></li>`;
     }).join("");
     document.getElementById("h-gap").textContent = "圖中斷開的部分是國防部公告正文為空的期間（2024 年 1 月至 2025 年 2 月），該段不計分。";
     drawHist();
