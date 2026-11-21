@@ -1,0 +1,386 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>台海情勢觀測</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+/* 版面：上方摘要（綜合分數＋三面向）→ 時間區間切換 → 各來源圖表 → 新聞 → 資料健康度 */
+:root {
+  --bg: #f6f7f9;
+  --surface: #fcfcfb;
+  --ink: #12161c;
+  --ink-2: #4b5260;
+  --ink-3: #7a8190;
+  --line: #e2e5ea;
+  --grid: #eceef2;
+  --accent: #1c5cab;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --font-body: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111317; --surface: #1a1c20; --ink: #eef0f3; --ink-2: #b9bec8; --ink-3: #868c99;
+    --line: #2b2f36; --grid: #24272d; --accent: #6da7ec;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111317; --surface: #1a1c20; --ink: #eef0f3; --ink-2: #b9bec8; --ink-3: #868c99;
+  --line: #2b2f36; --grid: #24272d; --accent: #6da7ec;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.6 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px 48px;
+}
+.wrap { max-width: 1120px; margin: 0 auto; display: grid; gap: 28px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; line-height: 1.3; }
+h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: .02em; }
+h2 { font-size: 1.1rem; font-weight: 700; }
+h3 { font-size: .95rem; font-weight: 500; color: var(--ink-2); }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-3); font-size: .85rem; }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 24px; }
+.top .meta { color: var(--ink-3); font-size: .85rem; }
+
+/* 摘要區 */
+.summary { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr); gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; min-width: 0; }
+.score-main { display: grid; gap: 10px; align-content: start; }
+.score-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.score-big { font-family: var(--font-num); font-size: 3.4rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+.score-big small { font-size: 1rem; color: var(--ink-3); font-weight: 400; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: .85rem; font-weight: 500; border: 1px solid var(--line); background: var(--bg); }
+.pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--lvl, var(--ink-3)); display: inline-block; }
+.tag-prov { font-size: .75rem; letter-spacing: .08em; color: var(--ink-3); border: 1px dashed var(--line); padding: 1px 8px; border-radius: 4px; justify-self: start; }
+.spark { height: 90px; }
+.dims { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.dim { display: grid; gap: 8px; align-content: start; }
+.dim-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.dim-score { font-family: var(--font-num); font-size: 1.6rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 3px; background: var(--grid); overflow: hidden; }
+.bar span { display: block; height: 100%; background: var(--lvl, var(--ink-3)); border-radius: 3px; }
+.parts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: .82rem; color: var(--ink-2); }
+.parts li { display: flex; justify-content: space-between; gap: 8px; }
+.parts li b { font-weight: 400; font-family: var(--font-num); color: var(--ink); white-space: nowrap; }
+
+/* 區間切換 */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); padding-block: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: .88rem; border: 0; background: transparent; color: var(--ink-2); padding: 6px 14px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.chart-card { display: grid; gap: 6px; }
+.chart-card .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.chart-box { position: relative; height: 240px; }
+.chart-box.tall { height: 280px; }
+.src { font-size: .78rem; color: var(--ink-3); }
+section { display: grid; gap: 14px; }
+
+/* 新聞與狀態 */
+.news { list-style: none; margin: 0; padding: 0; display: grid; }
+.news li { display: grid; grid-template-columns: 7.5em minmax(0, 1fr); gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: .9rem; }
+.news li:first-child { border-top: 0; }
+.news time { font-family: var(--font-num); font-size: .8rem; color: var(--ink-3); padding-top: 2px; }
+.news a { color: var(--ink); text-decoration: none; }
+.news a:hover { text-decoration: underline; }
+.news .src-name { color: var(--ink-3); font-size: .8rem; margin-left: 6px; }
+.kw { font-size: .72rem; color: var(--ink-2); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; white-space: nowrap; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .88rem; }
+th, td { text-align: left; padding: 7px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--ink-2); border-top: 0; }
+.ok { color: var(--good); } .bad { color: var(--critical); }
+.note { font-size: .85rem; color: var(--ink-2); max-width: 65em; }
+.empty { color: var(--ink-3); font-size: .9rem; padding: 20px 0; }
+.news li.empty { display: block; }
+
+@media (max-width: 860px) {
+  .summary { grid-template-columns: minmax(0, 1fr); }
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .dims { grid-template-columns: minmax(0, 1fr); }
+  .score-big { font-size: 2.8rem; }
+  .news li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>台海情勢觀測</h1>
+    <div class="meta" id="meta">載入資料中…</div>
+  </header>
+
+  <div class="summary">
+    <div class="panel score-main">
+      <h3>綜合緊張指數</h3>
+      <div class="score-row">
+        <div class="score-big" id="score">–<small> / 100</small></div>
+        <span class="pill" id="level"><i></i><span>–</span></span>
+      </div>
+      <span class="tag-prov">暫定算法・第 3 階段將改為正式模型</span>
+      <div class="spark"><canvas id="c-score" aria-label="綜合指數近期走勢"></canvas></div>
+      <div class="muted">分數為各指標在過去一年中的相對位置（百分位），越高代表越緊張，不代表開戰機率。</div>
+    </div>
+    <div class="panel dims" id="dims"></div>
+  </div>
+
+  <div class="toolbar">
+    <span class="muted">圖表區間</span>
+    <div class="seg" role="group" aria-label="圖表區間">
+      <button type="button" id="r90" data-range="90" aria-pressed="true">90 天</button>
+      <button type="button" id="r365" data-range="365" aria-pressed="false">1 年</button>
+      <button type="button" id="rall" data-range="all" aria-pressed="false">全部</button>
+    </div>
+  </div>
+
+  <section>
+    <h2>軍事動態</h2>
+    <div class="grid2">
+      <div class="panel chart-card">
+        <div class="head"><h3>共機架次（每日・7 日平均）</h3><span class="src">國防部</span></div>
+        <div class="chart-box tall"><canvas id="c-air"></canvas></div>
+      </div>
+      <div class="panel chart-card">
+        <div class="head"><h3>共艦艘數（每日・7 日平均）</h3><span class="src">國防部</span></div>
+        <div class="chart-box tall"><canvas id="c-ship"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>市場訊號</h2>
+    <div class="grid2">
+      <div class="panel chart-card">
+        <div class="head"><h3>發行量加權股價指數（收盤）</h3><span class="src">臺灣證券交易所</span></div>
+        <div class="chart-box"><canvas id="c-taiex"></canvas></div>
+      </div>
+      <div class="panel chart-card">
+        <div class="head"><h3>新台幣兌美元（1 美元兌台幣，越高＝台幣越弱）</h3><span class="src">FRED DEXTAUS</span></div>
+        <div class="chart-box"><canvas id="c-twd"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>新聞輿論</h2>
+    <div class="panel chart-card">
+      <div class="head"><h3>關鍵字每日報導數</h3><span class="src">Google 新聞（不重複標題計）</span></div>
+      <div class="chart-box tall"><canvas id="c-news"></canvas></div>
+    </div>
+    <div class="panel">
+      <h3>最新相關新聞</h3>
+      <ul class="news" id="news"></ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>資料來源狀態</h2>
+    <div class="panel table-wrap">
+      <table>
+        <thead><tr><th>來源</th><th>狀態</th><th>說明</th><th>檢查時間</th></tr></thead>
+        <tbody id="status"></tbody>
+      </table>
+    </div>
+    <p class="note">本頁為個人觀察用的綜合指標，資料全部來自公開來源並自動更新。國防部數據自 2022 年下半年起採用一致格式，較早的公告不納入圖表與評分。指數只反映「相對於過去一年」的變化，不是預測。</p>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(() => {
+  const SOURCE_NAMES = { mnd: "國防部共機共艦動態", taiex: "證交所加權指數", twd: "FRED 新台幣匯率", news: "Google 新聞／中央社" };
+  const KW_ORDER = ["共機", "共艦", "軍演", "圍台", "封鎖", "制裁", "統戰", "國台辦"];
+  let DATA = null, range = "90";
+  const charts = {};
+
+  try { const r = localStorage.getItem("range"); if (r) range = r; } catch (e) {}
+
+  const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const levelColor = (s) => s == null ? css("--ink-3") : s >= 80 ? css("--critical") : s >= 60 ? css("--serious") : s >= 40 ? css("--warning") : css("--good");
+  const levelName = (s) => s == null ? "資料不足" : s >= 80 ? "高" : s >= 60 ? "偏高" : s >= 40 ? "中" : "低";
+  const fmt = (v, d = 0) => v == null ? "–" : Number(v).toLocaleString("zh-TW", { maximumFractionDigits: d, minimumFractionDigits: d });
+
+  function cutoff() {
+    if (range === "all" || !DATA) return "0000-00-00";
+    const d = new Date(DATA.as_of + "T00:00:00"); d.setDate(d.getDate() - Number(range));
+    return d.toISOString().slice(0, 10);
+  }
+
+  function movingAvg(rows, key, days = 7) {
+    const out = [];
+    for (let i = 0; i < rows.length; i++) {
+      const end = new Date(rows[i].date), start = new Date(end); start.setDate(start.getDate() - (days - 1));
+      let sum = 0, n = 0;
+      for (let j = i; j >= 0 && new Date(rows[j].date) >= start; j--) { sum += rows[j][key]; n++; }
+      out.push(+(sum / n).toFixed(2));
+    }
+    return out;
+  }
+
+  function baseOptions(extra = {}) {
+    const ink2 = css("--ink-2"), grid = css("--grid");
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: extra.legend ?? false, position: "bottom", labels: { color: ink2, boxWidth: 10, boxHeight: 10, usePointStyle: true, font: { family: css("--font-body") } } },
+        tooltip: { backgroundColor: css("--surface"), titleColor: css("--ink"), bodyColor: css("--ink-2"), borderColor: css("--line"), borderWidth: 1, padding: 10, titleFont: { family: css("--font-num") }, bodyFont: { family: css("--font-body") } },
+      },
+      scales: {
+        x: { stacked: !!extra.stacked, grid: { display: false }, border: { color: css("--line") }, ticks: { color: ink2, maxTicksLimit: 6, maxRotation: 0, font: { family: css("--font-num"), size: 11 } } },
+        y: { stacked: !!extra.stacked, beginAtZero: extra.zero ?? true, grid: { color: grid }, border: { display: false }, ticks: { color: ink2, maxTicksLimit: 5, font: { family: css("--font-num"), size: 11 } } },
+      },
+    };
+  }
+
+  function draw(id, config) {
+    if (charts[id]) charts[id].destroy();
+    const el = document.getElementById(id);
+    if (!el) return;
+    charts[id] = new Chart(el, config);
+  }
+
+  function barLine(id, rows, key, unit, color) {
+    const labels = rows.map(r => r.date), avg = movingAvg(rows, key);
+    draw(id, {
+      data: { labels, datasets: [
+        { type: "bar", label: `每日${unit}`, data: rows.map(r => r[key]), backgroundColor: color + "55", borderRadius: 2, barPercentage: 1, categoryPercentage: .9, order: 2 },
+        { type: "line", label: "7 日平均", data: avg, borderColor: color, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: .25, order: 1 },
+      ] },
+      options: baseOptions({ legend: true }),
+    });
+  }
+
+  function line(id, pairs, label, color, digits) {
+    draw(id, {
+      type: "line",
+      data: { labels: pairs.map(p => p[0]), datasets: [{ label, data: pairs.map(p => p[1]), borderColor: color, backgroundColor: color + "1f", fill: true, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: .2 }] },
+      options: Object.assign(baseOptions({ zero: false }), {}),
+    });
+    charts[id].options.plugins.tooltip.callbacks = { label: (c) => `${label}：${fmt(c.parsed.y, digits)}` };
+    charts[id].update();
+  }
+
+  function renderCharts() {
+    if (typeof Chart === "undefined") return;
+    const c = cutoff(), s = DATA.series;
+    const mnd = s.mnd.filter(r => r.date >= c);
+    barLine("c-air", mnd, "aircraft", "架次", css("--s1"));
+    barLine("c-ship", mnd, "ships", "艘數", css("--s7"));
+    line("c-taiex", s.taiex.filter(p => p[0] >= c), "加權指數", css("--s3"), 2);
+    line("c-twd", s.twd.filter(p => p[0] >= c), "台幣/美元", css("--s2"), 3);
+
+    const nd = s.news.dates, keep = nd.map(d => d >= c);
+    const kws = KW_ORDER.filter(k => s.news.keywords[k]);
+    draw("c-news", {
+      type: "bar",
+      data: { labels: nd.filter((_, i) => keep[i]), datasets: kws.map((k, i) => ({
+        label: k, data: s.news.keywords[k].filter((_, j) => keep[j]), backgroundColor: css(`--s${i + 1}`),
+        borderColor: css("--surface"), borderWidth: { top: 1 }, borderSkipped: false, barPercentage: .95, categoryPercentage: .9,
+      })) },
+      options: baseOptions({ stacked: true, legend: true }),
+    });
+
+    const sh = DATA.score_history.filter(p => p[0] >= c);
+    draw("c-score", {
+      type: "line",
+      data: { labels: sh.map(p => p[0]), datasets: [{ data: sh.map(p => p[1]), borderColor: css("--accent"), backgroundColor: css("--accent") + "1a", fill: true, borderWidth: 2, pointRadius: (ctx) => ctx.dataIndex === sh.length - 1 ? 3 : 0, pointBackgroundColor: css("--accent"), tension: .25 }] },
+      options: (() => { const o = baseOptions(); o.scales.y.min = 0; o.scales.y.max = 100; o.scales.y.ticks.stepSize = 50; o.scales.x.ticks.maxTicksLimit = 3; o.plugins.tooltip.callbacks = { label: (x) => `綜合指數：${fmt(x.parsed.y, 1)}` }; return o; })(),
+    });
+  }
+
+  function renderSummary() {
+    const sc = DATA.score;
+    document.getElementById("score").innerHTML = `${fmt(sc.overall, 0)}<small> / 100</small>`;
+    const lv = document.getElementById("level");
+    lv.style.setProperty("--lvl", levelColor(sc.overall));
+    lv.querySelector("span").textContent = `緊張程度：${levelName(sc.overall)}`;
+    document.getElementById("meta").textContent = `資料截至 ${DATA.as_of}・產生於 ${DATA.generated_at}`;
+
+    document.getElementById("dims").innerHTML = Object.values(sc.dims).map(d => `
+      <div class="dim">
+        <div class="dim-head"><h3>${d.name}</h3><span class="dim-score">${fmt(d.score, 0)}</span></div>
+        <div class="bar" style="--lvl:${levelColor(d.score)}"><span style="width:${d.score ?? 0}%"></span></div>
+        <ul class="parts">${d.parts.map(p => `<li><span>${p.name}</span><b title="原始值 ${fmt(p.value, 2)}">${p.percentile == null ? "資料不足" : fmt(p.percentile, 0)}</b></li>`).join("")}</ul>
+      </div>`).join("");
+  }
+
+  function renderNews() {
+    const ul = document.getElementById("news");
+    const items = DATA.headlines.slice(0, 15);
+    if (!items.length) { ul.innerHTML = `<li class="empty">目前沒有新聞資料。</li>`; return; }
+    ul.innerHTML = items.map(h => {
+      const t = h.time.slice(5, 16).replace("T", " ");
+      const title = h.title.replace(/ - [^-]+$/, "");
+      const esc = (s) => s.replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+      return `<li><time>${t}</time><span><a href="${esc(h.link)}" target="_blank" rel="noopener">${esc(title)}</a><span class="src-name">${esc(h.source || "")}</span>${h.keyword ? `<span class="kw">${esc(h.keyword)}</span>` : ""}</span></li>`;
+    }).join("");
+  }
+
+  function renderStatus() {
+    document.getElementById("status").innerHTML = Object.entries(DATA.status).map(([k, v]) => `
+      <tr><td>${SOURCE_NAMES[k] || k}</td>
+      <td class="${v.ok ? "ok" : "bad"}">${v.ok ? "● 正常" : "▲ 異常"}</td>
+      <td>${v.message}</td><td class="num muted">${(v.checked_at || "").slice(0, 16).replace("T", " ")}</td></tr>`).join("");
+  }
+
+  function renderAll() { renderSummary(); if (typeof Chart !== "undefined") renderCharts(); }
+
+  document.querySelectorAll(".seg button").forEach(b => {
+    b.setAttribute("aria-pressed", String(b.dataset.range === range));
+    b.addEventListener("click", () => {
+      range = b.dataset.range;
+      try { localStorage.setItem("range", range); } catch (e) {}
+      document.querySelectorAll(".seg button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+      renderCharts();
+    });
+  });
+
+  // 主題切換時重畫圖表，讓顏色跟著深淺色模式
+  const rerender = () => DATA && renderAll();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rerender);
+  new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  fetch("data/dashboard.json", { cache: "no-store" })
+    .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(d => {
+      DATA = d;
+      // 各區塊獨立繪製：一塊失敗不影響其他區塊
+      for (const fn of [renderSummary, renderNews, renderStatus, renderCharts]) {
+        try { fn(); } catch (e) { console.error(fn.name, e); }
+      }
+      if (typeof Chart === "undefined") {
+        document.querySelectorAll("canvas").forEach(c => { c.outerHTML = '<p class="empty">圖表元件載入失敗，請重新整理頁面。</p>'; });
+      }
+    })
+    .catch(e => { document.getElementById("meta").textContent = `資料載入失敗（${e.message}），請稍後重新整理。`; });
+})();
+</script>
+</body>
+</html>
