@@ -2,7 +2,7 @@ name: 每日更新資料並部署
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # UTC 02:00 = 台北時間 10:00
+    - cron: "17 1 * * *"   # UTC 01:17 = 台北時間 09:17（避開整點壅塞；GitHub 排程常延遲，實際可能更晚）
   workflow_dispatch:
   push:
     branches: [main]
