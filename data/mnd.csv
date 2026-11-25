@@ -2049,3 +2049,5 @@ date,id,aircraft,aircraft_crossing,ships,official_ships,balloons,format,parse_ok
 2026-11-21,88312,2,2,6,1,4,current,True
 2026-11-22,88316,24,17,11,1,2,current,True
 2026-11-23,88318,6,5,12,0,0,current,True
+2026-11-24,88342,3,3,9,0,0,current,True
+2026-11-25,88346,1,1,9,0,0,current,True
